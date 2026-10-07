@@ -1,0 +1,1 @@
+ALTER TABLE `twilio_voice_calls` ADD `sms_follow_up_sent_at` integer;
