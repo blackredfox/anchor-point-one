@@ -8,7 +8,7 @@ import { choiceField, jsonError, textField } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
 type Context = { params: Promise<{ id: string }> };
-const statuses = ["received", "in_review", "scheduled", "completed", "closed"] as const;
+const statuses = ["received", "in_review", "verified", "scheduled", "in_progress", "waiting_for_approval", "waiting_for_parts", "completed", "follow_up_needed", "spam_unverified", "closed"] as const;
 
 export async function POST(request: Request, { params }: Context) {
   if (!await getAdminIdentity()) return jsonError("Owner access is required.", 403);
@@ -25,6 +25,7 @@ export async function POST(request: Request, { params }: Context) {
   const item = await db.prepare(`SELECT service_requests.phone,service_requests.email,
       service_requests.customer_name,service_requests.access_token,
       request_preferences.preferred_contact_method,
+      EXISTS (SELECT 1 FROM intake_owner_notifications WHERE request_id=service_requests.id) AS new_intake,
       CASE WHEN sms_consents.request_id IS NOT NULL AND sms_consents.opted_out_at IS NULL THEN 1 ELSE 0 END AS sms_enabled
     FROM service_requests
     LEFT JOIN request_preferences ON request_preferences.request_id=service_requests.id
@@ -38,6 +39,7 @@ export async function POST(request: Request, { params }: Context) {
       access_token: string;
       preferred_contact_method: "text" | "email" | null;
       sms_enabled: number;
+      new_intake: number;
     }>();
   if (!item) return jsonError("Request not found.", 404);
 
@@ -79,6 +81,10 @@ export async function POST(request: Request, { params }: Context) {
         .run();
       return Response.json({ ok: true, channel: "sms", smsStatus: sent.status }, { status: 201 });
     }
+  }
+
+  if (item.new_intake && !item.email) {
+    return jsonError("No approved messaging channel is available. Call the customer using the number on this request.", 409);
   }
 
   await db.batch([

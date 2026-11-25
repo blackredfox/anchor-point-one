@@ -30,23 +30,20 @@ export default function PrivacyPolicy() {
         <h2>Information we collect</h2>
         <p>
           When you request service, we collect the information you provide,
-          including your name, mobile phone number, optional email address, city,
-          ZIP code, preferred contact method, service category, request
-          description, optional RV type or equipment details, photos, short
-          videos, messages, voicemail recordings, call metadata, and SMS consent
-          choice. We also retain
+          including your name, mobile phone number, request description,
+          optional photos, messages, voicemail recordings, and call metadata.
+          When an available voice-consent flow is used, we retain the consent
+          prompt version, response, and related call details. We also retain
           service-request status and communication history so we can respond
           and coordinate service.
         </p>
 
-        <h2>Phone calls and voicemail</h2>
+        <h2>Phone calls</h2>
         <p>
           When you call our business number, we may collect the calling phone
-          number, call timestamps and status, and any voicemail you choose to
-          leave. The greeting tells you before recording begins. We associate
-          the call and recording with the applicable service-request thread so
-          our service team can review and respond. Voicemail transcription is
-          used only if that optional feature is enabled.
+          number, call timestamps and status. We use this information to handle
+          calls and filter spam. A call alone does not open a service request.
+          We may retain voicemail recordings associated with past requests.
         </p>
 
         <h2>How we use information</h2>
@@ -59,11 +56,12 @@ export default function PrivacyPolicy() {
 
         <h2>Text messaging</h2>
         <p>
-          If you voluntarily opt in, we may send service-related text messages
-          about your Anchor Point One request, including scheduling and follow-up.
-          Message frequency varies. Message and data rates may apply. Reply STOP
-          to opt out or HELP for help. Consent to text messages is not a
-          condition of purchase.
+          If you provide consent through an available messaging flow, we may
+          send service-related text messages about your Anchor Point One
+          request, including a short service-request form, scheduling, and
+          follow-up. Message frequency varies. Message and data rates may
+          apply. Reply STOP to opt out or HELP for help. Consent to text
+          messages is not a condition of purchase.
         </p>
         <p>
           When you initiate a text or media message to our business number, we
@@ -99,10 +97,10 @@ export default function PrivacyPolicy() {
 
         <h2>Your choices</h2>
         <p>
-          You may decline SMS consent and still submit a service request. You
-          may opt out of text messages at any time by replying STOP. To ask about
-          your information, request a correction, or request deletion where
-          applicable, email{" "}
+          You may submit a website service request without providing messaging
+          consent. You may opt out of text messages at any time by replying
+          STOP. To ask about your information, request a correction, or request
+          deletion where applicable, email{" "}
           <a href="mailto:service@anchorpoint.help">service@anchorpoint.help</a>.
         </p>
 

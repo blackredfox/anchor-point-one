@@ -17,6 +17,7 @@ interface Env {
   TWILIO_WEBHOOK_URL?: string;
   TWILIO_STATUS_WEBHOOK_URL?: string;
   NOTIFICATION_SMS_TO?: string;
+  TWILIO_SPOKEN_INTAKE_ENABLED?: string;
   IMAGES: {
     input(stream: ReadableStream): {
       transform(options: Record<string, unknown>): {

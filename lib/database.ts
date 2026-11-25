@@ -18,6 +18,7 @@ export type Bindings = {
   TWILIO_TRANSCRIPTION_WEBHOOK_URL?: string;
   TWILIO_VOICEMAIL_TRANSCRIPTION_ENABLED?: string;
   NOTIFICATION_SMS_TO?: string;
+  TWILIO_SPOKEN_INTAKE_ENABLED?: string;
 };
 
 export function getBindings(): Bindings {
@@ -76,6 +77,11 @@ async function initialize(db: D1Database) {
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS request_attachments_request_id_idx ON request_attachments (request_id)"),
     db.prepare("CREATE INDEX IF NOT EXISTS request_attachments_message_idx ON request_attachments (request_id, message_created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS attachment_cleanup_queue (
+      attachment_id TEXT PRIMARY KEY NOT NULL, object_key TEXT NOT NULL,
+      filename TEXT NOT NULL, content_type TEXT NOT NULL, size_bytes INTEGER NOT NULL,
+      queued_at INTEGER NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS sms_consents (
       request_id TEXT PRIMARY KEY NOT NULL, phone_e164 TEXT NOT NULL,
       consented_at INTEGER NOT NULL, consent_version TEXT NOT NULL,
@@ -102,6 +108,38 @@ async function initialize(db: D1Database) {
       FOREIGN KEY (active_request_id) REFERENCES service_requests(id) ON DELETE CASCADE
     )`),
     db.prepare("CREATE INDEX IF NOT EXISTS phone_conversations_request_id_idx ON phone_conversations (active_request_id)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS twilio_voice_calls (
+      call_sid TEXT PRIMARY KEY NOT NULL, request_id TEXT NOT NULL, from_phone TEXT NOT NULL,
+      recording_sid TEXT, recording_status TEXT NOT NULL DEFAULT 'pending', recording_attachment_id TEXT,
+      transcription_text TEXT, notification_sent_at INTEGER, transcription_notified_at INTEGER,
+      created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, sms_follow_up_sent_at INTEGER,
+      FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS twilio_voice_calls_request_id_idx ON twilio_voice_calls (request_id)"),
+    db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS twilio_voice_calls_recording_sid_idx ON twilio_voice_calls (recording_sid)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS intake_calls (
+      sid TEXT PRIMARY KEY, phone TEXT, created_at INTEGER NOT NULL,
+      prompt TEXT, prompt_version TEXT, answer TEXT, confidence REAL,
+      consented_at INTEGER, token_hash TEXT UNIQUE, expires_at INTEGER,
+      sms_reserved_at INTEGER, empty_at INTEGER
+    )`),
+    db.prepare("CREATE INDEX IF NOT EXISTS intake_calls_phone_idx ON intake_calls (phone, created_at)"),
+    db.prepare(`CREATE TABLE IF NOT EXISTS intake_message_events (
+      sid TEXT PRIMARY KEY, phone TEXT NOT NULL, created_at INTEGER NOT NULL, kind TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS intake_sms_preferences (
+      phone TEXT PRIMARY KEY, opted_out INTEGER NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS intake_form_submissions (
+      submission_key TEXT PRIMARY KEY, request_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+      upload_token TEXT NOT NULL UNIQUE, message_id INTEGER NOT NULL,
+      FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS intake_owner_notifications (
+      request_id TEXT NOT NULL, channel TEXT NOT NULL, state TEXT NOT NULL,
+      PRIMARY KEY (request_id, channel),
+      FOREIGN KEY (request_id) REFERENCES service_requests(id) ON DELETE CASCADE
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS reviews (
       id TEXT PRIMARY KEY NOT NULL, customer_name TEXT NOT NULL, email TEXT NOT NULL,
       service_type TEXT NOT NULL, rating INTEGER NOT NULL, body TEXT NOT NULL,

@@ -25,10 +25,10 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: "Anchor Point One", description: "Mobile RV diagnostics and repair support in Tampa Bay." },
 };
 
-const rvSummary = ["Mobile RV Diagnostics", "RV Inspections & Owner Support", "Rooftop A/C Diagnostics", "Electrical & Power-System Concerns", "Plumbing & Water-System Concerns", "Roof, Seal & Water-Intrusion Service", "Seasonal Maintenance & New Owner Orientation"];
+const rvSummary = ["Mobile RV Diagnostics", "RV Appliances", "RV Inspections & Owner Support", "Rooftop A/C Diagnostics", "Electrical & Power-System Concerns", "Plumbing & Water-System Concerns", "Roof, Seal & Water-Intrusion Service", "Seasonal Maintenance & New Owner Orientation"];
 const homeSummary = ["TV mounting", "Furniture assembly", "Door and cabinet hardware", "Shelving", "Blinds", "Curtain rods", "Caulking", "Minor punch-list tasks"];
 const steps = [
-  "Tell us what is happening in a service request. Include your city/ZIP and photos or a short video if available.",
+  "Tell us what is happening in a service request and add photos if helpful.",
   "We review the information. You do not need to know what part is bad or what repair is needed.",
   "We recommend the next step and may request more information first.",
   "You decide whether to proceed. Initial contact does not obligate you to purchase service.",
@@ -63,17 +63,17 @@ export default function Home() {
 
       <section className="hero" id="top">
         <div className="hero-copy">
-          <p className="eyebrow">Valrico, Florida · Approximately 50-mile service area</p>
+          <p className="eyebrow">Valrico, Florida · approximately 50-mile service area</p>
           <h1>Mobile RV Diagnostics, Inspections &amp; Repair Support in Tampa Bay</h1>
           <p className="lead">Not sure what is wrong with your RV? You do not need to guess, diagnose the issue yourself, or know what part needs replacement.</p>
-          <p>Send your city/ZIP, a short description, and photos or a short video if available. We will review the information, let you know whether we can help, and explain the most appropriate next step.</p>
+          <p>Send a short description and photos if helpful. We will review the information, let you know whether we can help, and explain the most appropriate next step.</p>
           <p><strong>No obligation just for reaching out.</strong></p>
           <ContactActions context="rv" />
           <small className="support-text">If an on-site visit or detailed diagnostic support is recommended, we explain the available options and any fees before paid work begins.</small>
         </div>
         <div className="hero-photo">
           <img src="/hero-neutral-mobile-service.png" alt="Mobile service technician at a Tampa Bay property with an organized service van" />
-          <div className="photo-note"><small>We come to you</small><strong>Valrico + approximately 50 miles</strong></div>
+          <div className="photo-note"><small>We come to you</small><strong>Valrico, Florida · approximately 50-mile service area</strong></div>
         </div>
       </section>
 
@@ -120,7 +120,7 @@ export default function Home() {
           <p>Our goal is simple: honest recommendations, quality workmanship, fair communication, and dependable service. We take pride in doing the job right and treating every customer&apos;s property with care and respect.</p>
           <Link href="#request">Start a service request →</Link>
         </div>
-        <aside className="owner-profile"><div className="owner-photo"><img src="/andre-owner.png" alt="Andrei, owner and mobile service technician at Anchor Point One" /></div><div className="owner-caption"><small>Meet Andrei</small><strong>Andrei — Owner &amp; Mobile Service Technician</strong><span>Over 8 years of hands-on technical experience</span></div><div className="about-stats"><p><strong>Approximately 50 miles</strong><span>Current service radius from Valrico; availability confirmed before scheduling</span></p><p><strong>RV first</strong><span>Diagnostics, inspections, maintenance, and repair support</span></p><p><strong>1 direct contact</strong><span>No call-center handoffs</span></p></div></aside>
+        <aside className="owner-profile"><div className="owner-photo"><img src="/andre-owner.png" alt="Andrei, owner and mobile service technician at Anchor Point One" /></div><div className="owner-caption"><small>Meet Andrei</small><strong>Andrei — Owner &amp; Mobile Service Technician</strong><span>Over 8 years of hands-on technical experience</span></div><div className="about-stats"><p><strong>Valrico, Florida · approximately 50-mile service area</strong><span>Availability confirmed before scheduling</span></p><p><strong>RV first</strong><span>Diagnostics, inspections, maintenance, and repair support</span></p><p><strong>1 direct contact</strong><span>No call-center handoffs</span></p></div></aside>
       </section>
 
       <PricingSummary />
@@ -128,7 +128,7 @@ export default function Home() {
       <ReviewsSection />
 
       <section className="request-section section" id="request">
-        <div><p className="eyebrow light">Request review</p><h2>Not Sure What Service You Need?</h2><h3 className="request-subhead">You do not need to diagnose the problem yourself.</h3><p>Send your RV issue, city/ZIP, and photos or a short video with the structured service request form. We review the information and recommend the most appropriate next step before you commit to paid service.</p><ContactActions context="rv" /><p>Submitting this form does not schedule service or commit you to paid work.</p><div className="area"><small>Service area</small><strong>Within approximately 50 miles of Valrico, Florida</strong><p>Final availability depends on location, scope, access, and any licensing or permit requirements.</p></div></div>
+        <div><p className="eyebrow light">Request review</p><h2>Not Sure What Service You Need?</h2><h3 className="request-subhead">You do not need to diagnose the problem yourself.</h3><p>Send your RV issue and photos if helpful with the short service request form. We review the information and recommend the most appropriate next step before you commit to paid service.</p><ContactActions context="rv" /><p>Submitting this form does not schedule service or commit you to paid work.</p><div className="area"><small>Service area</small><strong>Valrico, Florida · approximately 50-mile service area</strong><p>Final availability depends on location, scope, access, and any licensing or permit requirements.</p></div></div>
         <RequestForm />
       </section>
 

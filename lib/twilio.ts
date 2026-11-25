@@ -2,7 +2,7 @@ import { getBindings } from "@/lib/database";
 
 type TwilioSendResult =
   | { ok: true; sid: string; status: string }
-  | { ok: false; reason: "not_configured" | "failed" };
+  | { ok: false; reason: "not_configured" | "failed" | "retryable" };
 
 export async function sendTwilioMessage(
   to: string,
@@ -49,7 +49,7 @@ export async function sendTwilioMessage(
 
   if (!response.ok) {
     console.error("Twilio message send failed.", response.status);
-    return { ok: false, reason: "failed" };
+    return { ok: false, reason: response.status === 429 ? "retryable" : "failed" };
   }
 
   const data = await response.json() as { sid?: string; status?: string };

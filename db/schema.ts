@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const serviceRequests = sqliteTable("service_requests", {
   id: text("id").primaryKey(),
@@ -56,6 +56,15 @@ export const requestAttachments = sqliteTable("request_attachments", {
   index("request_attachments_request_id_idx").on(table.requestId),
   index("request_attachments_message_idx").on(table.requestId, table.messageCreatedAt),
 ]);
+
+export const attachmentCleanupQueue = sqliteTable("attachment_cleanup_queue", {
+  attachmentId: text("attachment_id").primaryKey(),
+  objectKey: text("object_key").notNull(),
+  filename: text("filename").notNull(),
+  contentType: text("content_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  queuedAt: integer("queued_at").notNull(),
+});
 
 export const smsConsents = sqliteTable("sms_consents", {
   requestId: text("request_id").primaryKey().references(() => serviceRequests.id, { onDelete: "cascade" }),
@@ -122,3 +131,44 @@ export const reviews = sqliteTable("reviews", {
   ownerRespondedAt: integer("owner_responded_at"),
   createdAt: integer("created_at").notNull(),
 }, (table) => [index("reviews_created_at_idx").on(table.createdAt)]);
+
+export const intakeCalls = sqliteTable("intake_calls", {
+  sid: text("sid").primaryKey(),
+  phone: text("phone"),
+  createdAt: integer("created_at").notNull(),
+  prompt: text("prompt"),
+  promptVersion: text("prompt_version"),
+  answer: text("answer"),
+  confidence: real("confidence"),
+  consentedAt: integer("consented_at"),
+  tokenHash: text("token_hash").unique(),
+  expiresAt: integer("expires_at"),
+  smsReservedAt: integer("sms_reserved_at"),
+  emptyAt: integer("empty_at"),
+}, (table) => [index("intake_calls_phone_idx").on(table.phone, table.createdAt)]);
+
+export const intakeMessageEvents = sqliteTable("intake_message_events", {
+  sid: text("sid").primaryKey(),
+  phone: text("phone").notNull(),
+  createdAt: integer("created_at").notNull(),
+  kind: text("kind").notNull(),
+});
+
+export const intakeSmsPreferences = sqliteTable("intake_sms_preferences", {
+  phone: text("phone").primaryKey(),
+  optedOut: integer("opted_out").notNull(),
+});
+
+export const intakeFormSubmissions = sqliteTable("intake_form_submissions", {
+  submissionKey: text("submission_key").primaryKey(),
+  requestId: text("request_id").notNull().references(() => serviceRequests.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+  uploadToken: text("upload_token").notNull().unique(),
+  messageId: integer("message_id").notNull(),
+});
+
+export const intakeOwnerNotifications = sqliteTable("intake_owner_notifications", {
+  requestId: text("request_id").notNull().references(() => serviceRequests.id, { onDelete: "cascade" }),
+  channel: text("channel").notNull(),
+  state: text("state").notNull(),
+}, (table) => [primaryKey({ columns: [table.requestId, table.channel] })]);

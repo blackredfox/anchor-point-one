@@ -1,5 +1,7 @@
 import { getBindings } from "@/lib/database";
 import { requestReference } from "@/lib/request-reference";
+import { siteConfig } from "@/lib/site-config";
+import { sendTwilioMessage } from "@/lib/twilio";
 
 type ServiceRequestNotification = {
   id: string;
@@ -19,7 +21,7 @@ type ServiceRequestNotification = {
 };
 
 type NotificationResult = {
-  email: "sent" | "not_configured" | "failed";
+  email: "sent" | "not_configured" | "failed" | "retryable";
   sms: "sent" | "not_configured" | "failed";
 };
 
@@ -60,6 +62,7 @@ async function sendOwnerEmail(
     method: "POST",
     headers: {
       authorization: `Bearer ${RESEND_API_KEY}`,
+      "idempotency-key": "owner-request-" + request.id,
       "content-type": "application/json",
     },
     body: JSON.stringify({
@@ -109,7 +112,7 @@ async function sendOwnerEmail(
 
   if (!response.ok) {
     console.error("Service request email notification failed.", response.status);
-    return "failed";
+    return response.status === 429 ? "retryable" : "failed";
   }
   return "sent";
 }
@@ -547,4 +550,41 @@ export async function sendServiceRequestNotifications(
       ? "sent"
       : "not_configured";
   return { email, sms: "not_configured" };
+}
+
+export async function deliverIntakeNotifications(db: D1Database, id: string) {
+  const item = await db.prepare("SELECT customer_name,phone,description,service_type FROM service_requests WHERE id=?")
+    .bind(id).first<{ customer_name: string; phone: string; description: string; service_type: ServiceRequestNotification["serviceType"] }>();
+  if (!item) return;
+  const ownerPhone = getBindings().NOTIFICATION_SMS_TO;
+  const origin = siteConfig.url;
+  const url = `${origin}/owner?request=${encodeURIComponent(id)}`;
+  const summary = item.description.replace(/\s+/g, " ").slice(0, 100);
+  await Promise.all((["email", "sms"] as const).map(async (channel) => {
+    const claim = await db.prepare(`UPDATE intake_owner_notifications SET state='sending'
+      WHERE request_id=? AND channel=? AND state IN ('pending','not_configured','retryable')`)
+      .bind(id, channel).run();
+    if (!claim.meta.changes) return;
+    let result: string;
+    try {
+      if (channel === "email") {
+        result = await sendOwnerEmail({
+          id, accessToken: "", name: item.customer_name, email: "", phone: item.phone, address: "",
+          serviceType: item.service_type, description: item.description, preferredContactMethod: "text",
+          rvType: "", rvDetails: "", equipmentModel: "", appointmentPreference: "", origin,
+        });
+      } else if (ownerPhone) {
+        const sent = await sendTwilioMessage(ownerPhone,
+          `Anchor Point One: New verified request — ${requestReference(id)}\n${item.customer_name} — ${summary}\nOpen request: ${url}`);
+        result = sent.ok ? "sent" : sent.reason;
+      } else {
+        result = "not_configured";
+      }
+    } catch {
+      // A timeout can occur after the provider accepted a message.
+      result = "unknown";
+    }
+    await db.prepare("UPDATE intake_owner_notifications SET state=? WHERE request_id=? AND channel=?")
+      .bind(result, id, channel).run();
+  }));
 }

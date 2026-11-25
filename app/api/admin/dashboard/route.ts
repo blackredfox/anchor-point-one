@@ -2,6 +2,8 @@ import { getAdminIdentity } from "@/lib/admin";
 import { ensureDatabase, getBindings } from "@/lib/database";
 import { requestReference } from "@/lib/request-reference";
 import { jsonError } from "@/lib/validation";
+import { ACK_COOLDOWN_MS } from "@/lib/conversation-routing";
+import { unansweredCallCondition } from "@/lib/voice-intake";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,8 @@ export async function GET() {
   const admin = await getAdminIdentity();
   if (!admin) return jsonError("Owner access is required.", 403);
   const db = await ensureDatabase();
-  const [reviews, requests, messages, attachments, deliveryStatuses] = await Promise.all([
+  const now = Date.now();
+  const [reviews, requests, messages, attachments, deliveryStatuses, unverified] = await Promise.all([
     db.prepare("SELECT * FROM reviews ORDER BY created_at DESC LIMIT 100").all<Row>(),
     db.prepare(`SELECT service_requests.*,
       request_preferences.preferred_contact_method,
@@ -23,6 +26,8 @@ export async function GET() {
       request_preferences.postal_code,
       request_preferences.rv_type,
       request_preferences.source_channel,
+      EXISTS (SELECT 1 FROM intake_owner_notifications WHERE request_id=service_requests.id) AS new_intake,
+      (SELECT COUNT(*) FROM request_messages WHERE request_messages.request_id=service_requests.id) AS message_count,
       (SELECT COUNT(*) FROM twilio_voice_calls
         WHERE twilio_voice_calls.request_id=service_requests.id) AS call_count,
       (SELECT COUNT(*) FROM twilio_voice_calls
@@ -96,6 +101,22 @@ export async function GET() {
     db.prepare(
       "SELECT message_id,status,error_code,updated_at FROM twilio_delivery_statuses WHERE message_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1000",
     ).all<Row>(),
+    db.prepare(`WITH empty_calls AS (
+      SELECT sid AS id,phone,created_at FROM intake_calls AS calls
+      WHERE created_at>? AND ${unansweredCallCondition}
+    ), quarantined_numbers AS (
+      SELECT phone FROM empty_calls WHERE phone IS NOT NULL GROUP BY phone HAVING COUNT(*)>=3
+    ), events AS (
+      SELECT id,phone,created_at,'empty_call' AS kind FROM empty_calls
+      UNION ALL
+      SELECT sid,phone,created_at,'unverified_message' FROM intake_message_events
+        WHERE kind='unverified' AND created_at>?
+    )
+    SELECT events.*,quarantined_numbers.phone IS NOT NULL AS quarantined
+      FROM events LEFT JOIN quarantined_numbers ON quarantined_numbers.phone=events.phone
+      ORDER BY created_at DESC,id LIMIT 100`)
+      .bind(now - 7 * ACK_COOLDOWN_MS, now - ACK_COOLDOWN_MS, ACK_COOLDOWN_MS, ACK_COOLDOWN_MS, now - 7 * ACK_COOLDOWN_MS)
+      .all<Row>(),
   ]);
   const attachmentsByMessage = new Map<string, AttachmentRow[]>();
   for (const attachment of attachments.results) {
@@ -118,6 +139,7 @@ export async function GET() {
   return Response.json({
     admin,
     reviews: reviews.results,
+    unverified: unverified.results.map((item: Row) => ({ ...item, quarantined: Boolean(item.quarantined) })),
     requests: requests.results.map((item: Row) => ({
       ...item,
       reference: requestReference(String(item.id)),
