@@ -23,6 +23,35 @@ export async function GET() {
       request_preferences.postal_code,
       request_preferences.rv_type,
       request_preferences.source_channel,
+      (SELECT COUNT(*) FROM twilio_voice_calls
+        WHERE twilio_voice_calls.request_id=service_requests.id) AS call_count,
+      (SELECT COUNT(*) FROM twilio_voice_calls
+        WHERE twilio_voice_calls.request_id=service_requests.id
+          AND twilio_voice_calls.sms_follow_up_sent_at IS NOT NULL
+          AND twilio_voice_calls.sms_follow_up_sent_at > 0) AS voice_follow_up_count,
+      ((SELECT COUNT(*) FROM request_messages
+          WHERE request_messages.request_id=service_requests.id
+            AND request_messages.author_type='customer') +
+        (SELECT COUNT(*) FROM request_attachments
+          WHERE request_attachments.request_id=service_requests.id
+            AND request_attachments.author_type='customer')) AS customer_activity_count,
+      CASE WHEN request_preferences.source_channel='voice'
+        AND EXISTS (SELECT 1 FROM twilio_voice_calls
+          WHERE twilio_voice_calls.request_id=service_requests.id)
+        AND NOT EXISTS (SELECT 1 FROM twilio_voice_calls
+          WHERE twilio_voice_calls.request_id=service_requests.id
+            AND twilio_voice_calls.sms_follow_up_sent_at IS NOT NULL
+            AND twilio_voice_calls.sms_follow_up_sent_at > 0)
+        AND NOT EXISTS (SELECT 1 FROM sms_consents
+          WHERE sms_consents.request_id=service_requests.id
+            AND sms_consents.consent_call_sid IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM request_messages
+          WHERE request_messages.request_id=service_requests.id
+            AND request_messages.author_type='customer')
+        AND NOT EXISTS (SELECT 1 FROM request_attachments
+          WHERE request_attachments.request_id=service_requests.id
+            AND request_attachments.author_type='customer')
+        THEN 1 ELSE 0 END AS likely_automated,
       MAX(
         service_requests.created_at,
         COALESCE((SELECT MAX(request_messages.created_at) FROM request_messages

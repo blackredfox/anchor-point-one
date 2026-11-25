@@ -280,6 +280,7 @@ test("voice calls create or reuse one request before the caller continues by SMS
   assert.match(incomingVoice, /phone_conversations\.active_request_id/);
   assert.match(incomingVoice, /previous\?\.id \?\? await phoneRequestId\(from\)/);
   assert.match(incomingVoice, /INSERT OR IGNORE INTO twilio_voice_calls/);
+  assert.match(incomingVoice, /UPDATE service_requests SET updated_at=\? WHERE id=\?/);
   assert.match(incomingVoice, /source_channel\) VALUES/);
   assert.match(incomingVoice, /"voice"/);
   assert.doesNotMatch(incomingVoice, /INSERT(?: OR IGNORE)? INTO sms_consents/);
@@ -311,6 +312,21 @@ test("voice calls create or reuse one request before the caller continues by SMS
   assert.match(attachments, /hostname !== "api\.twilio\.com"/);
   assert.match(owner, /<audio controls preload="metadata"/);
   assert.match(customer, /<audio controls preload="metadata"/);
+});
+
+test("owner inbox summarizes repeated calls and clears the automated-call hint after customer action", async () => {
+  const dashboardRoute = await readFile(new URL("../app/api/admin/dashboard/route.ts", import.meta.url), "utf8");
+  const owner = await readFile(new URL("../components/OwnerDashboard.tsx", import.meta.url), "utf8");
+
+  assert.match(dashboardRoute, /AS call_count/);
+  assert.match(dashboardRoute, /AS voice_follow_up_count/);
+  assert.match(dashboardRoute, /AS customer_activity_count/);
+  assert.match(dashboardRoute, /AS likely_automated/);
+  assert.match(dashboardRoute, /sms_consents\.consent_call_sid IS NOT NULL/);
+  assert.match(dashboardRoute, /request_attachments\.author_type='customer'/);
+  assert.match(owner, /No response \/ No Press 1\. No SMS was sent/);
+  assert.match(owner, /Possible automated/);
+  assert.match(owner, /Calls, messages, and photos remain together in this thread/);
 });
 
 test("voice webhooks validate exact callback URLs and retain a disabled voicemail fallback", async () => {

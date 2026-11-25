@@ -65,6 +65,8 @@ export async function POST(request: Request) {
   statements.push(
     db.prepare("INSERT OR IGNORE INTO twilio_voice_calls (call_sid,request_id,from_phone,recording_status,created_at,updated_at) VALUES (?,?,?,?,?,?)")
       .bind(callSid, requestId, from, "pending", now, now),
+    db.prepare("UPDATE service_requests SET updated_at=? WHERE id=?")
+      .bind(now, requestId),
     db.prepare(`INSERT INTO phone_conversations (phone_e164,active_request_id,last_activity_at,last_ack_at)
       VALUES (?,?,?,NULL) ON CONFLICT(phone_e164) DO UPDATE SET
       active_request_id=excluded.active_request_id,last_activity_at=MAX(phone_conversations.last_activity_at,excluded.last_activity_at)`)

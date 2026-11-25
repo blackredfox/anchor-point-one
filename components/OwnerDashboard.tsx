@@ -39,6 +39,10 @@ type ServiceRequest = {
   postal_code: string | null;
   rv_type: string | null;
   source_channel: string | null;
+  call_count: number;
+  voice_follow_up_count: number;
+  customer_activity_count: number;
+  likely_automated: number;
 };
 type Attachment = {
   id: string;
@@ -306,13 +310,18 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
       <div className="owner-layout">
       <aside>
         {filteredRequests.length ? filteredRequests.map((request) => <button
-          className={`${request.id === selected ? "active " : ""}${request.is_unread ? "unread " : ""}${request.is_important ? "important " : ""}${request.status === "completed" ? "completed" : ""}`.trim()}
+          className={`${request.id === selected ? "active " : ""}${request.is_unread ? "unread " : ""}${request.is_important ? "important " : ""}${request.likely_automated ? "possible-automated " : ""}${request.status === "completed" ? "completed" : ""}`.trim()}
           onClick={() => { setSelected(request.id); setError(""); setNotice(""); if (request.id === selected && request.is_unread) void updateRequest(request.id, { readState: "read" }, "Could not mark this request as read."); }}
           key={request.id}
         >
           <span className="request-row-title"><strong>{request.customer_name}</strong>{request.is_important ? <span aria-label="Important" title="Important">★</span> : null}</span>
           <small>{request.reference} · {request.service_type === "rv" ? "RV service" : request.service_type === "home" ? "Home service" : "Not sure"} · {request.status.replaceAll("_", " ")}</small>
-          <span className="request-badges">{request.is_unread ? <small>Unread</small> : null}{request.status === "completed" ? <small>Completed</small> : null}</span>
+          <span className="request-badges">
+            {request.is_unread ? <small>Unread</small> : null}
+            {request.call_count > 0 ? <small>{request.call_count === 1 ? "1 call" : `${request.call_count} calls`}</small> : null}
+            {request.likely_automated ? <small className="automated">Possible automated</small> : null}
+            {request.status === "completed" ? <small>Completed</small> : null}
+          </span>
         </button>) : <p className="empty-inbox">No messages match this view.</p>}
       </aside>
       {current ? <section className="owner-detail">
@@ -346,6 +355,16 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
                 ? "Preferred contact: Text, but the SMS connection is unavailable. A supplied email will be used as fallback."
                 : "No notification channel is available. Replies stay in the private web thread."}
         </p>
+        {current.call_count > 0 && <div className={current.likely_automated ? "call-summary automated" : "call-summary"}>
+          <strong>{current.call_count === 1 ? "1 call attempt" : `${current.call_count} call attempts`}</strong>
+          <span>{current.likely_automated
+            ? "No response / No Press 1. No SMS was sent. This may have been an automated call."
+            : current.customer_activity_count > 0
+              ? "The customer responded. Calls, messages, and photos remain together in this thread."
+              : current.voice_follow_up_count > 0
+                ? "Press 1 was received and text instructions were sent. The caller has not replied yet."
+                : "The call is recorded in this thread; no automatic-spam conclusion was made."}</span>
+        </div>}
         {(current.rv_type || current.rv_details || current.equipment_model || current.appointment_preference || current.source_channel) && <dl className="request-details">
           {current.source_channel && <div><dt>Source</dt><dd>{current.source_channel === "sms" ? "Direct SMS/MMS" : current.source_channel === "voice" ? "Phone call / voicemail" : "Website form"}</dd></div>}
           {current.rv_type && <div><dt>RV type</dt><dd>{current.rv_type}</dd></div>}
