@@ -10,10 +10,10 @@ export function ConversionBlock({ context }: { context: ServiceContext }) {
         <h2>{isRv ? "Not Sure What Is Wrong?" : "Not Sure If Your Project Is Something We Handle?"}</h2>
         {isRv ? <>
           <p>You do not need to diagnose the issue yourself or know what part needs replacement.</p>
-          <p>Send your city/ZIP, a short description, and photos or a short video if available.</p>
+          <p>Send a short description and photos if helpful.</p>
           <p>We will review the information and let you know the most appropriate next step.</p>
         </> : <>
-          <p>Send your city/ZIP, a short description, and photos or a short video if available.</p>
+          <p>Send a short description and photos if helpful.</p>
           <p>We will review the information and let you know whether the request is within our available service scope and what the next step would be.</p>
         </>}
         <p><strong>No obligation just for reaching out.</strong></p>

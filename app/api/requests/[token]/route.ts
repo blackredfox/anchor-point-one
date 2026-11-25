@@ -6,7 +6,6 @@ import {
   storeAttachmentUploads,
 } from "@/lib/attachments";
 import { ensureDatabase } from "@/lib/database";
-import { sendRequestChatNotification } from "@/lib/notifications";
 import { requestReference } from "@/lib/request-reference";
 import { jsonError } from "@/lib/validation";
 
@@ -154,10 +153,10 @@ export async function POST(request: Request, context: Context) {
       const updatedBody = automaticBody
         ? attachmentBody(totalPhotos, totalVideos)
         : existing.body;
-      await db.batch([
+      const results = await db.batch([
         ...stored.map((attachment) =>
           db.prepare(
-            "INSERT INTO request_attachments (id,request_id,message_created_at,author_type,object_key,filename,content_type,size_bytes,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO request_attachments (id,request_id,message_created_at,author_type,object_key,filename,content_type,size_bytes,created_at) SELECT ?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM request_messages WHERE id=? AND request_id=?)",
           ).bind(
             attachment.id,
             item.id,
@@ -168,12 +167,18 @@ export async function POST(request: Request, context: Context) {
             attachment.contentType,
             attachment.sizeBytes,
             now,
+            messageId,
+            item.id,
           )
         ),
         db.prepare("UPDATE request_messages SET body=? WHERE id=? AND request_id=?")
           .bind(updatedBody, messageId, item.id),
         db.prepare("UPDATE service_requests SET status=CASE WHEN status IN ('received','completed','closed') THEN 'in_review' ELSE status END,updated_at=? WHERE id=?").bind(now, item.id),
       ]);
+      if (!results[0]?.meta.changes) {
+        await removeStoredAttachments(stored);
+        return jsonError("This photo group is no longer available.", 409);
+      }
       return Response.json({ ok: true, messageId }, { status: 201 });
     }
 
@@ -205,17 +210,6 @@ export async function POST(request: Request, context: Context) {
     ]);
     const createdMessageId = Number(results[0]?.meta.last_row_id);
     if (!createdMessageId) throw new Error("Message could not be saved.");
-    await sendRequestChatNotification({
-      requestId: item.id,
-      customerName: item.customer_name,
-      body: messageBody,
-      attachmentCount: stored.length,
-      createdAt: now,
-      origin: new URL(request.url).origin,
-    }).catch((error) => {
-      console.error("Request chat notification failed.", error instanceof Error ? error.name : "UnknownError");
-      return "failed" as const;
-    });
     return Response.json({ ok: true, messageId: createdMessageId }, { status: 201 });
   } catch (error) {
     await removeStoredAttachments(stored);

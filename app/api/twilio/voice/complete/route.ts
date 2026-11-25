@@ -1,4 +1,4 @@
-import { getBindings } from "@/lib/database";
+import { ensureDatabase, getBindings } from "@/lib/database";
 import { validateTwilioRequest } from "@/lib/twilio";
 
 export const dynamic = "force-dynamic";
@@ -15,5 +15,11 @@ export async function POST(request: Request) {
   if (!await validateTwilioRequest(request, parameters, callbackUrl)) return voiceXml("", 403);
   const callSid = parameters.get("CallSid")?.trim() ?? "";
   if (!/^CA[a-zA-Z0-9]{20,64}$/.test(callSid)) return voiceXml("", 400);
-  return voiceXml('<Say voice="alice">Thank you. Your message has been received. Goodbye.</Say><Hangup/>');
+  const status = parameters.get("CallStatus") ?? "";
+  if (["completed", "canceled", "failed", "busy", "no-answer"].includes(status)) {
+    const db = await ensureDatabase();
+    await db.prepare(`UPDATE intake_calls SET empty_at=? WHERE sid=? AND prompt IS NOT NULL
+      AND answer IS NULL AND empty_at IS NULL`).bind(Date.now(), callSid).run();
+  }
+  return voiceXml("<Hangup/>");
 }

@@ -9,7 +9,7 @@ export function SiteFooter() {
           <strong>{siteConfig.name}</strong>
           <span>{siteConfig.descriptor}</span>
         </div>
-        <p>Based in Valrico, Florida — serving locations within approximately 50 miles. Service availability is confirmed before scheduling.</p>
+        <p>Valrico, Florida · approximately 50-mile service area. Service availability is confirmed before scheduling.</p>
         <a href={`mailto:${siteConfig.email}`}>{siteConfig.email}</a>
         <Link className="button copper" href="/#request">Send a Service Request</Link>
         <small>No obligation just for reaching out.</small>

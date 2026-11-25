@@ -9,7 +9,11 @@ export const rvServices: ServiceSection[] = [
   {
     title: "Mobile RV Diagnostics",
     intro: "We provide practical on-site diagnostic support for common RV concerns. You do not need to identify the failed part before contacting us. We start with the reported symptom, assess accessible systems, and explain recommended next steps before additional work or parts are approved.",
-    items: ["No power or intermittent power", "Battery or charging concerns", "Shore-power, fuse, breaker, switch, or control concerns", "A/C runs but does not cool", "Water leaks or low water pressure", "Water pump, faucet, toilet, fitting, or plumbing concerns", "Roof-seal and water-entry concerns", "Slide-out, awning, or exterior-component concerns", "Common RV appliance operational concerns"],
+    items: ["No power or intermittent power", "Battery or charging concerns", "Shore-power, fuse, breaker, switch, or control concerns", "A/C runs but does not cool", "Water leaks or low water pressure", "Water pump, faucet, toilet, fitting, or plumbing concerns", "Roof-seal and water-entry concerns", "Slide-out, awning, or exterior-component concerns"],
+  },
+  {
+    title: "RV Appliances",
+    intro: "Diagnostic and repair support for common RV appliance and equipment concerns, including refrigerators, water heaters, microwaves, range hoods, controls, and related electrical or water-system issues. Scope is confirmed before scheduling. Regulated propane/gas and sealed refrigerant work are not advertised unless separately authorized and licensed.",
   },
   {
     title: "RV Inspections & Owner Support",
@@ -61,11 +65,11 @@ export const homeServices: ServiceSection[] = [
 
 const generalFaqItems = [
   ["Do you provide mobile service?", "Yes. Anchor Point One provides on-site service at homes, RV parks, campgrounds, storage locations, and businesses within the available service area."],
-  ["Do I need to know what is wrong before contacting you?", "No. Describe what is happening and send photos or a short video if available. You do not need to identify the failed component, know what repair is required, or choose a diagnostic method."],
-  ["What happens after I contact you?", "We review the information and recommend the most appropriate next step. We may request additional photos, video, model information, or other details first. You decide whether to proceed."],
+  ["Do I need to know what is wrong before contacting you?", "No. Describe what is happening and send photos if available. You do not need to identify the failed component, know what repair is required, or choose a diagnostic method."],
+  ["What happens after I contact you?", "We review the information and recommend the most appropriate next step. The owner will personally ask only for the one or two missing details needed for your particular problem. You decide whether to proceed."],
   ["Does sending a message mean I have scheduled service?", "No. Initial contact is only a request for review. A paid service is scheduled only after the appropriate scope, pricing, location, and appointment details have been explained and accepted."],
   ["Do I have to choose between remote and onsite diagnosis?", "No. Start by telling us what is happening. We review the information and determine what type of assistance may be appropriate."],
-  ["What information should I send?", "Please send your city and ZIP code, a short description of the issue, and photos or a short video when possible. For RV service, include the RV type, year, make, model, and equipment model information if available."],
+  ["What information should I send?", "Please send your name, mobile phone number, a short description of the issue, and photos when helpful."],
   ["Do you provide an estimate before repairs?", "Yes. After diagnosis, we explain the recommended repair, estimated labor, required parts, and expected cost before performing additional work or ordering parts."],
 ] as const;
 
@@ -79,8 +83,8 @@ const pricingFaqItems = [
 ] as const;
 
 const rvFaqItems = [
-  ["Do you come to RV parks, campgrounds, storage facilities, and private homes?", "Yes, when the location is within our available service area and access is permitted. Send your city or ZIP code and location type so we can confirm availability."],
-  ["What should I send for an RV A/C or equipment issue?", "Send your city or ZIP, RV year/make/model, equipment model label if available, a description of the symptom, photos, and the available power source or utilities when relevant."],
+  ["Do you come to RV parks, campgrounds, storage facilities, and private homes?", "Yes, when the location is in our service area and access is permitted. Valrico, Florida · approximately 50-mile service area. The owner will confirm availability after reviewing your request."],
+  ["What should I send for an RV A/C or equipment issue?", "Describe the symptom in your own words and add photos when helpful. The owner will ask only for the specific missing details needed for your particular problem."],
   ["Can you tell me which RV part I need from a photo?", "Photos and model information can help narrow down possible causes. Many RV issues require on-site testing before a part can be correctly identified. We do not recommend ordering major parts before the cause is confirmed."],
   ["Do I need to be present during the RV appointment?", "Someone with access to the RV should be available at the beginning of the appointment to explain the issue and authorize recommended work."],
 ] as const;

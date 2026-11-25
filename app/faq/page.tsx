@@ -21,7 +21,7 @@ export default function FaqPage() {
     <SiteHeader />
     <section className="inner-hero compact"><p className="eyebrow">Before you schedule</p><h1>Frequently Asked Questions</h1><p>Start with what you know and use the service request form. We review the information and explain the next step before any paid service begins.</p><ContactActions context="rv" /></section>
     <section className="section"><FaqAccordion groups={faqGroups} /></section>
-    <section className="faq-conversion"><h2>Still not sure what is wrong?</h2><p>Send the symptom, city/ZIP, and any useful photos or a short video. Reaching out does not schedule or authorize paid work.</p><ContactActions context="rv" /></section>
+    <section className="faq-conversion"><h2>Still not sure what is wrong?</h2><p>Send the symptom and any useful photos. Reaching out does not schedule or authorize paid work.</p><ContactActions context="rv" /></section>
     <SiteFooter />
     <MobileContactBar context="rv" />
   </main>;

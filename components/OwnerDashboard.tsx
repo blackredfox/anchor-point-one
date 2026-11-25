@@ -31,6 +31,7 @@ type ServiceRequest = {
   last_inbound_at: number;
   updated_at: number;
   sms_enabled: number;
+  new_intake: number;
   preferred_contact_method: "text" | "email" | "web" | null;
   rv_details: string | null;
   equipment_model: string | null;
@@ -39,6 +40,7 @@ type ServiceRequest = {
   postal_code: string | null;
   rv_type: string | null;
   source_channel: string | null;
+  message_count: number;
   call_count: number;
   voice_follow_up_count: number;
   customer_activity_count: number;
@@ -61,11 +63,19 @@ type Message = {
   sms_error_code: string | null;
   sms_updated_at: number | null;
 };
+type UnverifiedEvent = {
+  id: string;
+  phone: string | null;
+  created_at: number;
+  kind: string;
+  quarantined: boolean;
+};
 type Data = {
   admin: { displayName: string; email: string };
   reviews: Review[];
   requests: ServiceRequest[];
   messages: Message[];
+  unverified?: UnverifiedEvent[];
   smsReady: boolean;
 };
 
@@ -84,17 +94,36 @@ const deliveryLabels: Record<string, string> = {
   canceled: "Canceled",
 };
 
+const statusLabels: Record<string, string> = {
+  received: "New request",
+  in_review: "Needs clarification",
+  verified: "Verified",
+  scheduled: "Scheduled",
+  in_progress: "In progress",
+  waiting_for_approval: "Waiting for approval",
+  waiting_for_parts: "Waiting for parts",
+  completed: "Completed",
+  follow_up_needed: "Follow-up needed",
+  spam_unverified: "Spam/Unverified",
+  closed: "Closed",
+};
+
 export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: string }) {
   const [data, setData] = useState<Data | null>(null);
-  const [tab, setTab] = useState<"requests" | "reviews">("requests");
+  const [tab, setTab] = useState<"requests" | "unverified" | "reviews">("requests");
   const [selected, setSelected] = useState("");
   const [reply, setReply] = useState("");
   const [responses, setResponses] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingMessages, setDeletingMessages] = useState(false);
+  const [selectingMessages, setSelectingMessages] = useState(false);
+  const [cleanupPending, setCleanupPending] = useState(false);
+  const [retryingCleanup, setRetryingCleanup] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread" | "important" | "completed">("all");
   const [search, setSearch] = useState("");
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Set<number>>(() => new Set());
 
   const load = useCallback(async () => {
     const response = await fetch("/api/admin/dashboard", { cache: "no-store" });
@@ -155,10 +184,14 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
     () => data?.messages.filter((message) => message.request_id === selected) ?? [],
     [data, selected],
   );
+  const selectedMessageCount = selectedMessageIds.size;
+  const messageCount = current?.message_count ?? 0;
+  const allMessagesSelected = messageCount > 0 && selectedMessageCount === messageCount;
   const unreadCount = useMemo(
     () => data?.requests.filter((request) => Boolean(request.is_unread)).length ?? 0,
     [data],
   );
+  const unverified = data?.unverified ?? [];
   const filteredRequests = useMemo(() => {
     if (!data) return [];
     const term = search.trim().toLowerCase();
@@ -182,6 +215,7 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
   const preferredContact = current?.preferred_contact_method ?? (current?.sms_enabled ? "text" : current?.email ? "email" : "web");
   const smsActive = Boolean(preferredContact === "text" && current?.sms_enabled && data?.smsReady);
   const emailActive = Boolean(!smsActive && current?.email);
+  const callRequired = Boolean(current?.new_intake && !smsActive && !emailActive);
 
   async function send(event: FormEvent) {
     event.preventDefault();
@@ -259,6 +293,85 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
     await load();
   }
 
+  function toggleMessage(messageId: number) {
+    setSelectedMessageIds((current) => {
+      const next = new Set(current);
+      if (next.has(messageId)) next.delete(messageId);
+      else next.add(messageId);
+      return next;
+    });
+  }
+
+  async function toggleAllMessages() {
+    if (!current) return;
+    if (allMessagesSelected) {
+      setSelectedMessageIds(new Set());
+      return;
+    }
+    setSelectingMessages(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/requests/${current.id}/messages`, { cache: "no-store" });
+      const result = await response.json() as { messageIds?: number[]; error?: string };
+      if (!response.ok || !result.messageIds) throw new Error(result.error ?? "Could not select all messages.");
+      setSelectedMessageIds(new Set(result.messageIds));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not select all messages.");
+    } finally {
+      setSelectingMessages(false);
+    }
+  }
+
+  async function deleteSelectedMessages() {
+    if (!current || deletingMessages || selectingMessages) return;
+    const messageIds = [...selectedMessageIds];
+    if (!messageIds.length) return;
+    const messageLabel = messageIds.length === 1 ? "message" : "messages";
+    if (!confirm(`Delete ${messageIds.length} selected ${messageLabel} and their attachments? This cannot be undone.`)) return;
+
+    const requestId = current.id;
+    setDeletingMessages(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(`/api/admin/requests/${requestId}/messages`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageIds }),
+      });
+      const value = await response.json() as { error?: string; deletedCount?: number; attachmentCleanup?: "complete" | "pending" };
+      if (!response.ok) throw new Error(value.error ?? "Could not delete the selected messages.");
+      setSelectedMessageIds(new Set());
+      const deletedCount = value.deletedCount ?? messageIds.length;
+      setCleanupPending(value.attachmentCleanup === "pending");
+      setNotice(value.attachmentCleanup === "pending"
+        ? `${deletedCount} ${deletedCount === 1 ? "message was" : "messages were"} deleted. Attachment cleanup is queued for a safe retry.`
+        : `${deletedCount} ${deletedCount === 1 ? "message was" : "messages were"} deleted with their attachments.`);
+      await load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not delete the selected messages.");
+    } finally {
+      setDeletingMessages(false);
+    }
+  }
+
+  async function retryAttachmentCleanup() {
+    if (!current || retryingCleanup) return;
+    setRetryingCleanup(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/requests/${current.id}/messages`, { method: "POST" });
+      const result = await response.json() as { attachmentCleanup?: "complete" | "pending"; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Could not retry attachment cleanup.");
+      setCleanupPending(result.attachmentCleanup === "pending");
+      setNotice(result.attachmentCleanup === "pending" ? "Some attachments are still queued for cleanup." : "Attachment cleanup completed.");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not retry attachment cleanup.");
+    } finally {
+      setRetryingCleanup(false);
+    }
+  }
+
   async function respond(review: Review) {
     const body = (responses[review.id] ?? review.owner_response ?? "").trim();
     if (!body) return;
@@ -285,6 +398,7 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
     </header>
     <nav>
       <button className={tab === "requests" ? "active" : ""} onClick={() => setTab("requests")}>Messages ({unreadCount})</button>
+      <button className={tab === "unverified" ? "active" : ""} onClick={() => setTab("unverified")}>Spam/Unverified ({unverified.length})</button>
       <button className={tab === "reviews" ? "active" : ""} onClick={() => setTab("reviews")}>Reviews ({data.reviews.length})</button>
       <button onClick={() => load()}>Refresh</button>
     </nav>
@@ -311,11 +425,12 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
       <aside>
         {filteredRequests.length ? filteredRequests.map((request) => <button
           className={`${request.id === selected ? "active " : ""}${request.is_unread ? "unread " : ""}${request.is_important ? "important " : ""}${request.likely_automated ? "possible-automated " : ""}${request.status === "completed" ? "completed" : ""}`.trim()}
-          onClick={() => { setSelected(request.id); setError(""); setNotice(""); if (request.id === selected && request.is_unread) void updateRequest(request.id, { readState: "read" }, "Could not mark this request as read."); }}
+          onClick={() => { if (request.id !== selected) setSelectedMessageIds(new Set()); setSelected(request.id); setError(""); setNotice(""); if (request.id === selected && request.is_unread) void updateRequest(request.id, { readState: "read" }, "Could not mark this request as read."); }}
+          disabled={deletingMessages || selectingMessages}
           key={request.id}
         >
           <span className="request-row-title"><strong>{request.customer_name}</strong>{request.is_important ? <span aria-label="Important" title="Important">★</span> : null}</span>
-          <small>{request.reference} · {request.service_type === "rv" ? "RV service" : request.service_type === "home" ? "Home service" : "Not sure"} · {request.status.replaceAll("_", " ")}</small>
+          <small>{request.reference} · {request.service_type === "rv" ? "RV service" : request.service_type === "home" ? "Home service" : "Not sure"} · {statusLabels[request.status] ?? request.status.replaceAll("_", " ")}</small>
           <span className="request-badges">
             {request.is_unread ? <small>Unread</small> : null}
             {request.call_count > 0 ? <small>{request.call_count === 1 ? "1 call" : `${request.call_count} calls`}</small> : null}
@@ -328,10 +443,16 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
         <div className="owner-title">
           <div><p className="eyebrow">Service request · {current.reference}</p><h2>{current.customer_name}</h2></div>
           <select value={current.status} onChange={(event) => updateStatus(event.target.value)}>
-            <option value="received">Received</option>
-            <option value="in_review">In review</option>
+            <option value="received">New request</option>
+            <option value="in_review">Needs clarification</option>
+            <option value="verified">Verified</option>
             <option value="scheduled">Scheduled</option>
+            <option value="in_progress">In progress</option>
+            <option value="waiting_for_approval">Waiting for approval</option>
+            <option value="waiting_for_parts">Waiting for parts</option>
             <option value="completed">Completed</option>
+            <option value="follow_up_needed">Follow-up needed</option>
+            <option value="spam_unverified">Spam/Unverified</option>
             <option value="closed">Closed</option>
           </select>
         </div>
@@ -339,7 +460,7 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
           <button onClick={() => updateReadState(current.is_unread ? "read" : "unread")}>{current.is_unread ? "Mark as Read" : "Mark as Unread"}</button>
           <button className={current.is_important ? "important active" : "important"} aria-pressed={Boolean(current.is_important)} onClick={toggleImportant}>{current.is_important ? "★ Important" : "☆ Important"}</button>
           <button onClick={() => updateStatus(current.status === "completed" ? "in_review" : "completed")}>{current.status === "completed" ? "Reopen" : "Mark Completed"}</button>
-          <button className="danger" onClick={deleteRequest}>Delete</button>
+          <button className="danger" onClick={deleteRequest} disabled={deletingMessages || selectingMessages}>Delete</button>
         </div>
         <div className="contact">
           {current.phone ? <a href={`tel:${current.phone}`}><small>Phone</small>{current.phone}</a> : <p><small>Phone</small>Not provided</p>}
@@ -358,11 +479,11 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
         {current.call_count > 0 && <div className={current.likely_automated ? "call-summary automated" : "call-summary"}>
           <strong>{current.call_count === 1 ? "1 call attempt" : `${current.call_count} call attempts`}</strong>
           <span>{current.likely_automated
-            ? "No response / No Press 1. No SMS was sent. This may have been an automated call."
+            ? "No response or text consent. No SMS was sent. This may have been an automated call."
             : current.customer_activity_count > 0
               ? "The customer responded. Calls, messages, and photos remain together in this thread."
               : current.voice_follow_up_count > 0
-                ? "Press 1 was received and text instructions were sent. The caller has not replied yet."
+                ? "Text consent was received and instructions were sent. The caller has not replied yet."
                 : "The call is recorded in this thread; no automatic-spam conclusion was made."}</span>
         </div>}
         {(current.rv_type || current.rv_details || current.equipment_model || current.appointment_preference || current.source_channel) && <dl className="request-details">
@@ -374,7 +495,29 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
         </dl>}
         <div className="original"><small>Original request</small><p>{current.description}</p></div>
         <div className="messages">
+          <div className="message-selection" aria-label="Select messages to delete">
+            <label><input
+              type="checkbox"
+              checked={allMessagesSelected}
+              onChange={toggleAllMessages}
+              disabled={!messageCount || deletingMessages || selectingMessages}
+            /> Select all messages</label>
+            <span>{selectedMessageCount ? `${selectedMessageCount} selected` : "Select messages to delete"}</span>
+            <button className="danger" type="button" onClick={deleteSelectedMessages} disabled={!selectedMessageCount || deletingMessages || selectingMessages}>
+              {deletingMessages ? "Deleting…" : "Delete selected"}
+            </button>
+          </div>
+          {cleanupPending && <button type="button" onClick={retryAttachmentCleanup} disabled={retryingCleanup}>
+            {retryingCleanup ? "Cleaning up…" : "Retry attachment cleanup"}
+          </button>}
           {messages.map((message) => <article className={`message ${message.author_type}`} key={message.id}>
+            <label className="message-select"><input
+              type="checkbox"
+              checked={selectedMessageIds.has(message.id)}
+              onChange={() => toggleMessage(message.id)}
+              disabled={deletingMessages || selectingMessages}
+              aria-label={`Select message from ${message.author_type === "owner" ? "Anchor Point One" : message.author_type === "customer" ? current.customer_name : "Request assistant"}`}
+            /> Select</label>
             <small>{message.author_type === "owner" ? "Anchor Point One" : message.author_type === "customer" ? current.customer_name : "Request assistant"}</small>
             <p>{message.body}</p>
             {message.attachments?.length > 0 && <div className="message-photos">
@@ -396,15 +539,23 @@ export function OwnerDashboard({ initialRequestId = "" }: { initialRequestId?: s
             </p>}
           </article>)}
         </div>
-        <form className="composer" onSubmit={send}>
+        {callRequired ? <p className="sms-status">No approved messaging channel is available. Use the phone number above to call the customer.</p> : <form className="composer" onSubmit={send}>
           <label>{smsActive ? "Text customer" : emailActive ? "Email customer" : "Reply in private thread"}
             <textarea required rows={4} maxLength={1500} value={reply} onChange={(event) => setReply(event.target.value)} />
           </label>
           <small>{smsActive ? "The customer receives this as an SMS from the registered AnchorPoint business number." : emailActive ? "The reply is saved here and the customer receives its text by email with a private chat link." : "The customer will see this reply when they open their private request link."}</small>
           <button className="button copper" disabled={sending}>{sending ? "Sending…" : smsActive ? "Send SMS" : emailActive ? "Post & Email Reply" : "Post Reply"}</button>
-        </form>
+        </form>}
       </section> : <p>Select a request.</p>}
-    </div></> : <div className="owner-reviews">
+    </div></> : tab === "unverified" ? <div className="owner-unverified">
+      <h2>Spam/Unverified</h2>
+      <p>These calls and messages did not create service requests or owner notifications.</p>
+      {unverified.length ? <div className="unverified-events">{unverified.map((event) => <article key={event.id}>
+        <div><strong>{event.kind.replaceAll("_", " ")}</strong><time>{new Date(event.created_at).toLocaleString()}</time></div>
+        <p>{event.phone || "Caller ID unavailable"}</p>
+        {event.quarantined ? <small>Quarantined</small> : null}
+      </article>)}</div> : <p>No unverified activity.</p>}
+    </div> : <div className="owner-reviews">
       {data.reviews.length ? data.reviews.map((review) => <article key={review.id}>
         <div>
           <div><span className="rating">{"★".repeat(review.rating)}</span><h2>{review.customer_name}</h2><p>{review.email} · {review.service_type}</p></div>

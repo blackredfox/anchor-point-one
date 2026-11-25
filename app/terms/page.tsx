@@ -38,7 +38,7 @@ export default function TermsOfService() {
         </p>
         <p>
           Sending an SMS or MMS, submitting a website form, or sharing photos
-          or video is a request for review only. It does not authorize a paid
+          is a request for review only. It does not authorize a paid
           diagnostic visit, repair, parts, or an appointment.
         </p>
 
@@ -61,27 +61,27 @@ export default function TermsOfService() {
 
         <h2>SMS messaging terms</h2>
         <p>
-          If you check the SMS consent box, you agree to receive
-          service-related text messages about your Anchor Point One request,
-          including scheduling and follow-up. Message frequency varies. Message
-          and data rates may apply. Reply STOP to unsubscribe or HELP for help.
-          Consent is not a condition of purchase.
+          If you provide consent through an available messaging flow, you agree
+          to receive service-related text messages about your Anchor Point One
+          request, including a short service-request form, scheduling, and
+          follow-up. Message frequency varies. Message and data rates may
+          apply. Reply STOP to unsubscribe or HELP for help. Consent is not a
+          condition of purchase.
         </p>
 
         <p>
           Supported carriers are not liable for delayed or undelivered
           messages. You are responsible for charges imposed by your mobile
           provider and for keeping your phone number current. After opting out,
-          you may still communicate by email or through your private request
-          link.
+          you may still submit a website request or contact us through other
+          available methods.
         </p>
 
-        <h2>Phone calls and voicemail</h2>
+        <h2>Phone calls</h2>
         <p>
-          If you choose to leave a voicemail after the recorded notice, you
-          consent to that voicemail being recorded and made available to the
-          Anchor Point One service team for responding to your request. You may
-          hang up and contact us by text or through the website instead.
+          If we are unavailable when you call, you can submit a service
+          request at anchorpoint.help or send a text describing the issue to
+          our business number.
         </p>
 
         <h2>Website availability</h2>

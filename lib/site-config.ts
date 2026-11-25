@@ -5,7 +5,7 @@ export const siteConfig = {
   email: "service@anchorpoint.help",
   phoneE164: "+18134413696",
   phoneDisplay: "(813) 441-3696",
-  serviceArea: "Within approximately 50 miles of Valrico, Florida",
+  serviceArea: "Valrico, Florida · approximately 50-mile service area",
 } as const;
 
 // Keep the new website-to-SMS acquisition flow off until the matching Twilio
